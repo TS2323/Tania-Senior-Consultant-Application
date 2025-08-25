@@ -65,16 +65,14 @@
 
 <button id="soundBtn" onclick="toggleMusic()" title="Toggle sound">🔇 Sound</button>
 
-<!-- Background music: place music.mp3 next to this HTML file or update the src -->
-  <audio id="bgMusic" src="music.mp3" preload="auto" playsinline></audio>
-
+<!-- Audio file lives in the repo root as music.mp3 -->
+<audio id="bgMusic" src="music.mp3" preload="auto" playsinline></audio>
 
 <script>
-  // Avatars (use relative paths or URLs)
+  // ---------- DATA ----------
   const managerAvatar = { img: 'manager.png.png' };
   const myAvatar      = { img: 'me.png.png' };
 
-  // Landing thoughts — use backticks so apostrophes are safe
   const landing = [
     `Time to hire a Senior Consultant. Am I looking for another me or someone different?…`,
     `Hmm, Tania's application is here!`
@@ -117,87 +115,79 @@
     if(p.kind==='landing'){
       content=`<div class="page"><div class="content" style="grid-template-columns:1fr"><div class="left">${managerThinkStackHTML(landing)}</div></div>
       <div class="controls"><div class="hint">${hint}</div><div class="progress"><span style="width:0%"></span></div>
-      <div class="btns"><button disabled>⬅ Back</button><button onclick="nextPage()">Start ➡</button></div></div></div>`;
+      <div class="btns"><button disabled>⬅ Back</button><button id="startBtn">Start ➡</button></div></div></div>`;
     } else if(p.kind==='q'){
       content=`<div class="page"><div class="content" style="grid-template-columns:1fr"><div class="left">${managerThinkStackHTML([p.text])}</div></div>
       <div class="controls"><div class="hint">Q${p.idx+1} • ${hint}</div><div class="progress"><span style="width:${progressWidth()}"></span></div>
-      <div class="btns"><button onclick="prevPage()">⬅ Back</button><button onclick="nextPage()">Next ➡</button></div></div></div>`;
+      <div class="btns"><button id="backBtn">⬅ Back</button><button id="nextBtn">Next ➡</button></div></div></div>`;
     } else if(p.kind==='a'){
       content=`<div class="page"><div class="content"><div class="left">${myAnswerHTML(p.text)}</div><div class="right">${avatarHTML(true)}</div></div>
       <div class="controls"><div class="hint">A${p.idx+1} • ${hint}</div><div class="progress"><span style="width:${progressWidth()}"></span></div>
-      <div class="btns"><button onclick="prevPage()">⬅ Back</button><button onclick="nextPage()">${pageIndex===pages.length-1?'Finish ✅':'Next ➡'}</button></div></div></div>`;
+      <div class="btns"><button id="backBtn">⬅ Back</button><button id="nextBtn">${pageIndex===pages.length-1?'Finish ✅':'Next ➡'}</button></div></div></div>`;
     } else if(p.kind==='manager-think'){
       content=`<div class="page"><div class="content" style="grid-template-columns:1fr"><div class="left">${managerThinkStackHTML([p.text])}</div></div>
       <div class="controls"><div class="hint">${hint}</div><div class="progress"><span style="width:${progressWidth()}"></span></div>
-      <div class="btns"><button onclick="prevPage()">⬅ Back</button><button onclick="nextPage()">Next ➡</button></div></div></div>`;
+      <div class="btns"><button id="backBtn">⬅ Back</button><button id="nextBtn">Next ➡</button></div></div></div>`;
     } else {
       content=`<div class="page"><div class="final-wrap"><div class="final-text fade-in">${p.text}</div></div>
       <div class="controls"><div class="hint">${hint}</div><div class="progress"><span style="width:${progressWidth()}"></span></div>
-      <div class="btns"><button onclick="prevPage()">⬅ Back</button><button disabled>Done ✅</button></div></div></div>`;
+      <div class="btns"><button id="backBtn">⬅ Back</button><button disabled>Done ✅</button></div></div></div>`;
     }
     root.innerHTML = content;
+
+    // wire buttons
+    const nextEl = document.getElementById('nextBtn');
+    const backEl = document.getElementById('backBtn');
+    const startEl = document.getElementById('startBtn');
+    if (nextEl) nextEl.addEventListener('click', nextPage);
+    if (backEl) backEl.addEventListener('click', prevPage);
+    if (startEl) startEl.addEventListener('click', () => { tryStartMusic(); nextPage(); });
   }
 
-<script>
-  // ===== AUDIO: reliable start across Chrome/Edge/Safari/iOS =====
-  const audioEl  = document.getElementById('bgMusic');
+  // ---------- AUDIO ----------
+  const audioEl = document.getElementById('bgMusic');
   const soundBtn = document.getElementById('soundBtn');
-
-  let audioStarted = false;
+  let musicStarted = false;
 
   function updateSoundBtn(){
-    if (!audioEl.paused && !audioEl.muted) {
-      soundBtn.textContent = '🔈 Sound';
-      soundBtn.classList.add('on');
-    } else {
-      soundBtn.textContent = '🔇 Sound';
-      soundBtn.classList.remove('on');
-    }
+    if (!audioEl.paused && !audioEl.muted) { soundBtn.textContent='🔈 Sound'; soundBtn.classList.add('on'); }
+    else { soundBtn.textContent='🔇 Sound'; soundBtn.classList.remove('on'); }
   }
 
-  // Start audio on a user gesture (required by browsers)
-  async function startAudio(force=false){
+  async function tryStartMusic(){
     try {
-      audioEl.muted = false;           // make sure we’re not muted
-      audioEl.volume = 0.35;           // audible volume
-      if (force) audioEl.currentTime = 0;
-      await audioEl.play();            // must be within a user gesture
-      audioStarted = true;
-    } catch (err) {
-      console.warn('Audio blocked:', err?.name || err);
+      audioEl.muted = false;
+      audioEl.volume = 0.35;
+      await audioEl.play();
+      musicStarted = true;
+    } catch(e) {
+      console.warn('Autoplay blocked until user gesture.', e?.name || e);
     } finally {
       updateSoundBtn();
     }
   }
 
-  // Hook the global toggle for your “Sound” button
-  window.toggleMusic = async function toggleMusic(){
-    if (!audioStarted || audioEl.paused) {
-      await startAudio(true);
-    } else {
-      audioEl.pause();
-      updateSoundBtn();
-    }
-  };
+  async function toggleMusic(){
+    if (audioEl.paused) { await tryStartMusic(); }
+    else { audioEl.pause(); updateSoundBtn(); }
+  }
+  window.toggleMusic = toggleMusic;
 
-  // Also start when user clicks anywhere/key (first gesture)
-  window.addEventListener('pointerdown', () => startAudio(), { once: true });
-  window.addEventListener('keydown',     () => startAudio(), { once: true });
+  // start on any first gesture
+  window.addEventListener('pointerdown', () => tryStartMusic(), { once:true });
+  window.addEventListener('keydown', () => tryStartMusic(), { once:true });
 
-  // If you have a “Start ➡” button that calls nextPage(),
-  // make sure nextPage triggers audio on the first transition:
-  const _nextPage = window.nextPage;   // keep your existing function
-  window.nextPage = function patchedNextPage(){
-    if (!audioStarted) startAudio(true);
-    _nextPage();
-  };
+  // ---------- NAV ----------
+  function nextPage(){ if(pageIndex<pages.length-1){ pageIndex++; if(pageIndex===1 && !musicStarted){ tryStartMusic(); } render(); } }
+  function prevPage(){ if(pageIndex>0){ pageIndex--; render(); } }
 
-  updateSoundBtn();
-</script>
+  document.addEventListener('keydown',(e)=>{
+    const k=e.key.toLowerCase();
+    if(k==='n'||k==='arrowright'||k===' ') nextPage();
+    if(k==='b'||k==='arrowleft') prevPage();
+  });
 
-  
-
-  // === Interactive background ===
+  // ---------- BACKGROUND ----------
   const canvas = document.getElementById('bgCanvas');
   const ctx = canvas.getContext('2d');
   let W = canvas.width = window.innerWidth, H = canvas.height = window.innerHeight;
@@ -221,12 +211,11 @@
       p.x+=p.vx;p.y+=p.vy; if(p.x<0||p.x>W)p.vx*=-1; if(p.y<0||p.y>H)p.vy*=-1;
     }
     requestAnimationFrame(tick);
-  } tick();
+  }
+  tick();
 
-  render();updateSoundBtn();
+  // boot
+  render(); updateSoundBtn();
 </script>
 </body>
 </html>
-
-
-
