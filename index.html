@@ -66,7 +66,8 @@
 <button id="soundBtn" onclick="toggleMusic()" title="Toggle sound">🔇 Sound</button>
 
 <!-- Background music: place music.mp3 next to this HTML file or update the src -->
-<audio id="bgMusic" src="music.mp3" preload="auto" playsinline></audio>
+  <audio id="bgMusic" src="music.mp3" preload="auto" playsinline></audio>
+
 
 <script>
   // Avatars (use relative paths or URLs)
@@ -137,20 +138,64 @@
     root.innerHTML = content;
   }
 
-  // === MUSIC CONTROL ===
-  const audioEl = document.getElementById('bgMusic');
+<script>
+  // ===== AUDIO: reliable start across Chrome/Edge/Safari/iOS =====
+  const audioEl  = document.getElementById('bgMusic');
   const soundBtn = document.getElementById('soundBtn');
-  let musicStarted = false;
-  function updateSoundBtn(){ if(!audioEl.paused && !audioEl.muted){soundBtn.textContent='🔈 Sound';soundBtn.classList.add('on');} else {soundBtn.textContent='🔇 Sound';soundBtn.classList.remove('on');} }
-  function tryStartMusic(){ audioEl.volume=0.2; audioEl.muted=false; audioEl.play().then(()=>{musicStarted=true;updateSoundBtn();}).catch(()=>{updateSoundBtn();}); }
-  function toggleMusic(){ if(audioEl.paused||audioEl.muted){audioEl.muted=false;audioEl.play().then(()=>updateSoundBtn());} else {audioEl.pause();updateSoundBtn();} }
-  function kickstart(){ if(!musicStarted){tryStartMusic();} document.removeEventListener('pointerdown',kickstart);document.removeEventListener('keydown',kickstart);}
-  document.addEventListener('pointerdown',kickstart,{once:true});
-  document.addEventListener('keydown',kickstart,{once:true});
 
-  function nextPage(){ if(pageIndex<pages.length-1){ pageIndex++; if(pageIndex===1){tryStartMusic();} render(); } }
-  function prevPage(){ if(pageIndex>0){ pageIndex--; render(); } }
-  document.addEventListener('keydown',(e)=>{const k=e.key.toLowerCase(); if(k==='n'||k==='arrowright'||k===' ')nextPage(); if(k==='b'||k==='arrowleft')prevPage();});
+  let audioStarted = false;
+
+  function updateSoundBtn(){
+    if (!audioEl.paused && !audioEl.muted) {
+      soundBtn.textContent = '🔈 Sound';
+      soundBtn.classList.add('on');
+    } else {
+      soundBtn.textContent = '🔇 Sound';
+      soundBtn.classList.remove('on');
+    }
+  }
+
+  // Start audio on a user gesture (required by browsers)
+  async function startAudio(force=false){
+    try {
+      audioEl.muted = false;           // make sure we’re not muted
+      audioEl.volume = 0.35;           // audible volume
+      if (force) audioEl.currentTime = 0;
+      await audioEl.play();            // must be within a user gesture
+      audioStarted = true;
+    } catch (err) {
+      console.warn('Audio blocked:', err?.name || err);
+    } finally {
+      updateSoundBtn();
+    }
+  }
+
+  // Hook the global toggle for your “Sound” button
+  window.toggleMusic = async function toggleMusic(){
+    if (!audioStarted || audioEl.paused) {
+      await startAudio(true);
+    } else {
+      audioEl.pause();
+      updateSoundBtn();
+    }
+  };
+
+  // Also start when user clicks anywhere/key (first gesture)
+  window.addEventListener('pointerdown', () => startAudio(), { once: true });
+  window.addEventListener('keydown',     () => startAudio(), { once: true });
+
+  // If you have a “Start ➡” button that calls nextPage(),
+  // make sure nextPage triggers audio on the first transition:
+  const _nextPage = window.nextPage;   // keep your existing function
+  window.nextPage = function patchedNextPage(){
+    if (!audioStarted) startAudio(true);
+    _nextPage();
+  };
+
+  updateSoundBtn();
+</script>
+
+  
 
   // === Interactive background ===
   const canvas = document.getElementById('bgCanvas');
@@ -182,5 +227,6 @@
 </script>
 </body>
 </html>
+
 
 
